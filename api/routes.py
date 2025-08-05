@@ -9,9 +9,10 @@ from langchain_qdrant import QdrantVectorStore
 from core.config import settings
 from services.vector_store_initializer import qdrant_handler, embeddings
 from services.rag import run_rag_pipeline
+from fastapi.responses import StreamingResponse
 router = APIRouter()
-@router.post("/query", response_model=QueryResponse)
-def user_query(payload: QueryRequest) -> QueryResponse:
+@router.post("/query")
+def user_query(payload: QueryRequest):
     """
     Process user query: generate embedding, retrieve context, run RAG pipeline, and return LLM response.
     """
@@ -31,4 +32,7 @@ def user_query(payload: QueryRequest) -> QueryResponse:
     print(f"Final response from RAG pipeline: {final_response}")
 
     # Step 4: Return the final LLM response
-    return QueryResponse(response=final_response)
+    return StreamingResponse(
+        final_response,
+        media_type="application/json",  # or "text/event-stream" if using SSE
+    )

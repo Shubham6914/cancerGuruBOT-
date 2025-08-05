@@ -1,6 +1,7 @@
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
+import json
 load_dotenv()  # Load from .env file
 import os
 llm = ChatOllama(
@@ -8,27 +9,35 @@ llm = ChatOllama(
     temperature=0.5,
     base_url=os.getenv("LLM_API_URL", "http://localhost:11434").replace("/api/generate", "")
 )
-def call_llm(prompt: str) -> str:
+
+def call_llm_streaming(prompt: str):
     """
-    Calls the local LLM using LangChain's ChatOllama and returns the response.
-
+    Streams LLM response in real-time using a generator.
+    
     Args:
-        prompt (str): The full prompt including context and question.
+        prompt (str): The user question/prompt.
 
-    Returns:
-        str: LLM-generated full response.
+    Yields:
+        str: Chunks of the LLM-generated response.
     """
     try:
         messages = [HumanMessage(content=prompt)]
-        response = llm.invoke(messages)
-
-        # If response.content is a list, join it into a string
-        if isinstance(response.content, list):
-            return " ".join(str(part) for part in response.content).strip()
+        stream = llm.stream(messages)  # ✅ Start streaming
+    
+        response_content = ""
+        for chunk in stream:
+            content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+            response_content += content
+            # Yield chunk as a JSON-like string (adjust as needed)
+            yield json.dumps({"response": content, "done": False}) + "\n"
+            print(f"LLM chunk: {content}")
         
-        # If it's a string already
-        return response.content.strip()
+        # Finalize the response
+        print("LLM streaming completed." , response_content)
+
+        # After streaming ends, you could yield a final done signal:
+        yield json.dumps({"done": True}) + "\n"
 
     except Exception as e:
-        print("LLM error:", e)
-        return "Sorry, the LLM returned an invalid response."
+        print("LLM streaming error:", e)
+        yield json.dumps({"response": "Sorry, an error occurred while generating the response.", "done": True}) + "\n"

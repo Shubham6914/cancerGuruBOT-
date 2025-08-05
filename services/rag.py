@@ -1,7 +1,7 @@
 from .prompts import chat_prompt
-from core.llm import call_llm
+from core.llm import call_llm_streaming
 
-def run_rag_pipeline(query: str, context_docs: list) -> str:
+def run_rag_pipeline(query: str, context_docs: list):
     """
     Combine query and retrieved documents, build a prompt using chat format, call LLM, and return response.
     """
@@ -25,6 +25,6 @@ def run_rag_pipeline(query: str, context_docs: list) -> str:
 
     # Call your LLM (Ollama) with formatted chat messages
     prompt_str = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in formatted_prompt])
-    response = call_llm(prompt_str)
-
-    return response
+    for chunk in call_llm_streaming(prompt_str):
+        yield chunk
+# 
