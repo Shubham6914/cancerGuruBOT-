@@ -8,24 +8,27 @@ from qdrant_client import QdrantClient
 from langchain_qdrant import QdrantVectorStore
 from core.config import settings
 from services.vector_store_initializer import qdrant_handler, embeddings
-
+from services.rag import run_rag_pipeline
 router = APIRouter()
-
 @router.post("/query", response_model=QueryResponse)
 def user_query(payload: QueryRequest) -> QueryResponse:
     """
-    Process user query and return response.
+    Process user query: generate embedding, retrieve context, run RAG pipeline, and return LLM response.
     """
     query = payload.query
-    # Generate embeddings for the query
+    print(f"Received query: {query}")
+
+    # Step 1: Generate embeddings for the query
     query_embeddings = generate_embeddings(query)
+    print(f"Generated embeddings for query: {query_embeddings}")
 
-    # Initialize Qdrant handler (assuming vector_store is already set up
-
+    # Step 2: Retrieve top-k similar documents from Qdrant
     similar_docs = qdrant_handler.search_similar_documents_by_vector(query_embeddings, k=3)
-    # Here you would typically call your LLM API and process the response
-    # For now, we will just return a mock response
-    
-    combined_content = "\n".join([doc.page_content for doc in similar_docs])
+    print(f"Retrieved {len(similar_docs)} similar documents.")
 
-    return QueryResponse(response=combined_content)
+    # Step 3: Pass query and docs to RAG pipeline
+    final_response = run_rag_pipeline(query, similar_docs)
+    print(f"Final response from RAG pipeline: {final_response}")
+
+    # Step 4: Return the final LLM response
+    return QueryResponse(response=final_response)
